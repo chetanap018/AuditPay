@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Agentic Commerce Demo"
+description = "A pitch-ready AI shopping agent demo for a modern D2C storefront, with explainable product recommendations, enforced purchase guardrails, simulated Razorpay checkout, and a live audit trail."
+version = "1.0.0"
+id = "artifacts/agentic-commerce"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21508
+
+[services.development]
+run = "pnpm --filter @workspace/agentic-commerce run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/agentic-commerce", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/agentic-commerce/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21508"
+BASE_PATH = "/"

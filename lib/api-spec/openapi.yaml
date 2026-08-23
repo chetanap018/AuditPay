@@ -10,6 +10,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: catalog
+    description: Product catalog
+  - name: agent
+    description: Shopping agent
+  - name: checkout
+    description: Guarded checkout
+  - name: audit
+    description: Explainability and audit trail
 paths:
   /healthz:
     get:
@@ -24,6 +32,101 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /catalog:
+    get:
+      operationId: getCatalog
+      tags: [catalog]
+      summary: Browse the agent-readable catalog
+      responses:
+        "200":
+          description: Product catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /catalog/{id}:
+    get:
+      operationId: getProduct
+      tags: [catalog]
+      summary: Get one product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Product not found
+  /agent/chat:
+    post:
+      operationId: sendAgentMessage
+      tags: [agent]
+      summary: Ask the shopping agent for a recommendation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentMessageInput"
+      responses:
+        "200":
+          description: Agent response and recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentResponse"
+  /checkout:
+    post:
+      operationId: createCheckout
+      tags: [checkout]
+      summary: Create a guarded Razorpay test checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Checkout result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+  /audit:
+    get:
+      operationId: getAuditLog
+      tags: [audit]
+      summary: Read agent action audit events
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+  /audit/summary:
+    get:
+      operationId: getAuditSummary
+      tags: [audit]
+      summary: Read audit dashboard summary
+      responses:
+        "200":
+          description: Audit summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditSummary"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +136,75 @@ components:
           type: string
       required:
         - status
+    Product:
+      type: object
+      required: [id, name, description, price, stock, category, image, accent, rating]
+      properties:
+        id: { type: number }
+        name: { type: string }
+        description: { type: string }
+        price: { type: number }
+        stock: { type: number }
+        category: { type: string }
+        image: { type: string }
+        accent: { type: string }
+        rating: { type: number }
+    AgentMessageInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1 }
+        sessionId: { type: ["string", "null"] }
+    AgentResponse:
+      type: object
+      required: [message, status, reasoning, products, guardrailStatus]
+      properties:
+        message: { type: string }
+        status: { type: string }
+        reasoning: { type: string }
+        products:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
+        guardrailStatus: { type: string }
+        proposedAmount: { type: ["number", "null"] }
+        checkoutId: { type: ["string", "null"] }
+    CheckoutInput:
+      type: object
+      required: [productId, amount, simulateFailure]
+      properties:
+        productId: { type: number }
+        amount: { type: number }
+        simulateFailure: { type: boolean }
+        sessionId: { type: ["string", "null"] }
+    CheckoutResult:
+      type: object
+      required: [success, status, message, reasoning, boundsPassed]
+      properties:
+        success: { type: boolean }
+        status: { type: string }
+        message: { type: string }
+        reasoning: { type: string }
+        boundsPassed: { type: boolean }
+        paymentUrl: { type: ["string", "null"] }
+        retryAvailable: { type: boolean }
+    AuditEvent:
+      type: object
+      required: [id, timestamp, actionType, amount, boundsPassed, reasoning, outcome]
+      properties:
+        id: { type: string }
+        timestamp: { type: string }
+        actionType: { type: string }
+        amount: { type: number }
+        boundsPassed: { type: boolean }
+        reasoning: { type: string }
+        outcome: { type: string }
+    AuditSummary:
+      type: object
+      required: [actionsToday, ordersApproved, totalValue, guardrailPassRate, failedPayments]
+      properties:
+        actionsToday: { type: number }
+        ordersApproved: { type: number }
+        totalValue: { type: number }
+        guardrailPassRate: { type: number }
+        failedPayments: { type: number }
 

@@ -1,0 +1,105 @@
+# Replit Prompt — Agentic Commerce Demo (Razorpay AI Buildathon)
+
+Copy everything below the line into Replit's AI Agent chat to kick off the build.
+
+---
+
+I'm building a project for the **Razorpay AI Buildathon** (Track: AI Growth & Agentic Commerce). The goal is a working prototype that demonstrates an AI shopping agent completing a purchase on behalf of a buyer, using Razorpay's **test-mode** payment APIs, with a visible guardrail/audit layer showing that every financial action is explainable, bounded, and gated.
+
+Deployment target is flexible/secondary — prioritize clean architecture and working functionality over deployment optimization. Standard hosting (Render, Railway, or similar) will be figured out later.
+
+## What to build
+
+Three connected pieces in one repo:
+
+### 1. Merchant Storefront (human-facing + agent-readable)
+- A product catalog page (grid of products: name, price, stock, description, category, image placeholder).
+- Products are served both as a normal page AND as a structured JSON API endpoint (`GET /api/catalog`) so an AI agent can browse it programmatically, separate from how a human would browse it.
+- Seed the catalog with 8-10 fake products (pick a believable small D2C store — e.g. skincare, or electronics accessories).
+
+### 2. Shopping Agent (chat interface)
+- A chat UI where a user types a natural language request, e.g. "get me a moisturizer for dry skin under ₹800."
+- Backend agent logic that:
+  - Parses the request into structured constraints (budget, category, keywords)
+  - Searches the catalog for matching products
+  - Uses an LLM with tool-calling (structure this so I can plug in an API key — write it against the Anthropic or OpenAI SDK with a single `agent_llm.py` module I can configure, don't hardcode a specific model deep in business logic)
+  - Proposes the order back to the user for confirmation, or auto-confirms if under a small configurable threshold
+  - Triggers checkout via Razorpay test-mode APIs (Orders API + Payment Link) once confirmed
+- Every decision the agent makes must be logged with a plain-English reason (e.g. "selected Product X because price ₹650 is under budget ₹800 and category matches 'moisturizer'"), not just a status code.
+
+### 3. Guardrail + Audit Dashboard
+- A dashboard page showing a live/refreshable table of every agent action: timestamp, action type, amount, bounds check result (pass/fail), reasoning, final outcome.
+- Guardrails must be enforced in actual code, not just via prompting the LLM. Write a standalone `guardrails.py` module with explicit, testable functions like `check_order_bounds(amount, category)` that the checkout flow calls *before* hitting Razorpay. This is the most important piece the buildathon evaluates — make it clean and easy to point to in a code review.
+- Enforce real bounds: max order value, max orders per session, and a category allow-list. Any action outside bounds should be rejected and logged with a clear reason, not silently dropped.
+- Deliberately simulate at least one failure (use Razorpay's documented test-mode failure card/UPI to force a declined payment) and show the graceful fallback in the UI: retry logic, a user-facing message, and a logged failure entry in the dashboard — not just a server-side error in the console.
+
+## Tech stack
+
+- **Backend:** Python + FastAPI. Use Pydantic models for all request/response schemas — this also gives you free interactive API docs at `/docs`, which is genuinely useful for showing your architecture in the pitch video.
+- **Agent/LLM layer:** isolate all LLM calls and tool-calling logic in `agent_llm.py` and `agent_tools.py`, separate from the FastAPI route handlers. Route handlers should stay thin — they call into agent logic, they don't contain it.
+- **Database:** SQLite via SQLAlchemy for local development (fast to set up in Replit, zero external dependency). Structure models so migrating to Postgres later is a one-line connection-string change, not a rewrite.
+- **Payments:** Razorpay's official Python SDK, test-mode keys only, read from environment variables `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` — never hardcoded.
+- **Frontend:** React + Vite, Tailwind for styling. Three main views: storefront, agent chat, audit dashboard. Keep API calls in a single `api.ts` client module, not scattered across components.
+
+## Project structure
+
+```
+/backend
+  main.py                 → FastAPI app entrypoint, route registration
+  /routes
+    catalog.py
+    agent.py
+    checkout.py
+    audit.py
+  /core
+    guardrails.py          → bounds-checking logic, isolated and unit-testable
+    agent_llm.py            → LLM client wrapper
+    agent_tools.py          → tool definitions the agent can call (search_catalog, place_order, etc.)
+    razorpay_client.py      → Razorpay SDK wrapper, test mode only
+  /db
+    models.py               → SQLAlchemy models: Product, Order, AgentAction, AuditLog
+    session.py
+    seed.py                 → seeds the fake catalog
+  requirements.txt
+/frontend
+  /src
+    /pages
+      Storefront.tsx
+      AgentChat.tsx
+      AuditDashboard.tsx
+    /components
+    api.ts                  → single client for all backend calls
+  package.json
+/README.md                  → setup + local dev instructions
+/.env.example                → all required environment variables, no real values
+```
+
+## Database schema (starting point)
+
+- `products`: id, name, description, price, stock, category
+- `orders`: id, product_id, amount, status, razorpay_order_id, created_at
+- `agent_actions`: id, action_type, reasoning, amount, bounds_passed (bool), created_at
+- `audit_log`: id, event_type, details (json), created_at
+
+## Specific requirements — please don't skip these
+
+1. **Guardrails are real, testable code** — not prompt instructions to the LLM. Write actual Python functions with clear pass/fail logic, called explicitly in the checkout flow before any Razorpay API call fires.
+2. **Every agent action is explainable** — a human-readable `reasoning` string stored with every logged action.
+3. **Handle at least one failure gracefully**, visibly — simulate a Razorpay test-mode payment failure and show the retry/fallback flow in the dashboard UI, not just in logs.
+4. **Keep the agent logic swappable** — the LLM client wrapper should make it easy to change models or providers without touching route handlers or guardrail logic.
+5. Add a `.env.example` listing every required environment variable.
+6. Write basic unit tests for `guardrails.py` specifically — this is the piece most likely to get scrutinized in the panel interview, and having tests for it is a strong, cheap signal of engineering discipline.
+
+## Order of work
+
+1. Scaffold the folder structure and empty files first, show me before continuing.
+2. Build the database models, seed data, and confirm the catalog API works.
+3. Build the storefront UI against the catalog API.
+4. Build `guardrails.py` with unit tests, in isolation, before wiring it into checkout.
+5. Build the Razorpay test-mode checkout flow, calling guardrails first.
+6. Build the agent chat interface and wire it to the LLM + tool-calling logic.
+7. Build the audit dashboard.
+8. Wire up the simulated failure scenario and its graceful fallback.
+9. Write the README with local dev setup instructions.
+
+Start by scaffolding the folder structure and the database models, then show me before continuing to the next step.

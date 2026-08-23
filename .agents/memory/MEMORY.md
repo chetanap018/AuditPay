@@ -1,0 +1,1 @@
+- [OpenAPI numeric schemas](openapi-numeric-schemas.md) — this workspace's current Zod runtime requires numeric IDs/counts to avoid generated z.int() helpers.
