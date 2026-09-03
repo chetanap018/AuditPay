@@ -1,7 +1,6 @@
 <p align="center">
-   <img src="assets/logo.jpg" alt="AuditPay logo" width="150">
+   <img src="assets/logo.jpg" alt="AuditPay logo" width="180">
 </p>
-
 <h1 align="center">AuditPay</h1>
 
 <p align="center">
