@@ -29,6 +29,7 @@ node_modules
 
 # misc
 .env
+auditpay.db
 /.sass-cache
 /connect.lock
 /coverage
