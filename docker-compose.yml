@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: auditpay-backend
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+      DATABASE_URL: "sqlite:////data/auditpay.db"
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_TVEmSMaahZz670}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-XhckJqIwDgHkBhD40F0q0jhD}
+    volumes:
+      - auditpay_data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: auditpay-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE: "http://localhost:8000/api"
+    restart: unless-stopped
+
+volumes:
+  auditpay_data:
