@@ -1,4 +1,21 @@
-# AuditPay
+<p align="center">
+   <img src="assets/logo.png" alt="AuditPay logo" width="120">
+</p>
+
+<h1 align="center">AuditPay</h1>
+
+<p align="center">
+   A safe, explainable AI shopping agent with deterministic guardrails and a complete audit trail.
+</p>
+
+<p align="center">
+   <a href="#quick-start-docker">Quick start</a> ·
+   <a href="#what-youll-see-when-you-open-it">Features</a> ·
+   <a href="#architecture-overview">Architecture</a> ·
+   <a href="#manual-non-docker-setup">Development</a>
+</p>
+
+<br>
 
 AuditPay is an AI shopping agent that completes purchases on a merchant's behalf — safely bounded by deterministic guardrails and fully auditable by a human after the fact.
 
@@ -113,10 +130,37 @@ If you'd rather run the backend and frontend separately:
 
 ## Testing
 
-The guardrail logic — the core safety mechanism of this project — has dedicated regression test coverage in `backend/tests/test_guardrails.py`, covering amount caps, category rejections, session order limits, and aggregate spend caps. Run it with:
+The project can be tested at the unit, database, frontend build, and Docker levels.
+
+- **Run all backend tests:**
+   ```bash
+   python3 -m pytest backend/tests -q
+   ```
+- **Test guardrails:** `backend/tests/test_guardrails.py` covers transaction amount limits, category rejection, session order limits, and aggregate spend caps.
+- **Test database schema:** `backend/tests/test_schema_verification.py` verifies that the required tables, including `saved_products`, are available.
+- **Verify saved-product persistence:** save a product from the agent flow, refresh the browser, and confirm it remains in the Saved view. Remove it and refresh again to confirm it is deleted.
+- **Check the API directly:** open `http://localhost:8000/docs` and test `/api/catalog`, `/api/saved`, `/api/agent`, and `/api/checkout`.
+- **Build the frontend:**
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+- **Validate Docker startup:**
+   ```bash
+   docker compose up --build
+   ```
+   Then open `http://localhost:5173` and `http://localhost:8000/health`.
+- **Check formatting changes:**
+   ```bash
+   git diff --check
+   ```
+
+For a quick backend-only run:
 
 ```bash
-pytest
+python3 -m pytest backend/tests -q
 ```
 
 ## Project structure
