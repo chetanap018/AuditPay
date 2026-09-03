@@ -1,5 +1,5 @@
 <p align="center">
-   <img src="assets/logo.jpg" alt="AuditPay logo" width="180">
+   <img src="assets/logo.jpg" alt="AuditPay logo" width="180" style="border-radius: 20px>
 </p>
 <h1 align="center">AuditPay</h1>
 
