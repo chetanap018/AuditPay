@@ -43,10 +43,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Demo app with no cookies or auth: allow any origin (localhost, LAN IP, tunnels).
+# Restricting this earlier caused 400 "Disallowed CORS origin" on every preflight
+# when the frontend was opened from anything other than localhost:5173.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
