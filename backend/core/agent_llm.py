@@ -99,6 +99,8 @@ class AgentDecision:
     amount: Optional[float] = None
     guardrail_status: str = "pending"
     candidates_considered: list[dict[str, str | float | int]] = field(default_factory=list)
+    # Same-category, in-stock, within-budget options the user can switch to.
+    alternatives: list[dict[str, Any]] = field(default_factory=list)
     # Upsell/Cross-sell fields
     upsell_product: Optional[dict[str, Any]] = None
     cross_sell_products: list[dict[str, Any]] = field(default_factory=list)
@@ -160,6 +162,7 @@ class AgentLLM:
                 candidates.append(item)
                 continue
             rejected.append({
+                "id": item.get("id"),
                 "name": str(item.get("name", "Unknown product")),
                 "category": category,
                 "price": price,
@@ -206,6 +209,7 @@ class AgentLLM:
         # first; filter-rejected items fill the remaining slots.
         pricier = [
             {
+                "id": item.get("id"),
                 "name": str(item.get("name", "Unknown product")),
                 "category": str(item.get("category", "unknown")),
                 "price": float(item.get("price", 0)),
@@ -230,6 +234,7 @@ class AgentLLM:
             amount=candidate_budget,
             guardrail_status="passed",
             candidates_considered=considered[:3],
+            alternatives=pricier,
             upsell_product=self._find_upsell(best_match, catalog),
             cross_sell_products=self._find_cross_sells(best_match, catalog),
         )

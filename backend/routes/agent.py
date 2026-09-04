@@ -29,6 +29,8 @@ class AgentResponse(BaseModel):
     proposed_amount: Optional[float] = None
     product_id: Optional[int] = None
     candidates_considered: list[dict] = []
+    # Same-category, in-stock, within-budget options the user can switch to.
+    alternatives: list[dict] = []
     # Upsell/Cross-sell fields
     upsell_product: Optional[dict] = None
     cross_sell_products: list[dict] = []
@@ -102,6 +104,7 @@ def handle_agent_request(payload: AgentRequest, db: Session = Depends(get_db)) -
         proposed_amount=decision.amount,
         product_id=decision.product_id,
         candidates_considered=decision.candidates_considered[:3],
+        alternatives=decision.alternatives,
         upsell_product=decision.upsell_product,
         cross_sell_products=decision.cross_sell_products,
         bundle_offer=bundle_offer,

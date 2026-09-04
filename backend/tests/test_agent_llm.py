@@ -37,6 +37,17 @@ def test_moisturizer_request_recommends_matching_category():
     assert decision.amount == 649
 
 
+def test_alternatives_are_same_category_with_ids():
+    decision = AgentLLM().decide("show me a moisturizer", build_catalog())
+    assert decision.product_id is not None
+    picked = decision.product_id
+    for alternative in decision.alternatives:
+        assert alternative["id"] != picked
+        assert alternative["category"] == "moisturizer"
+        assert alternative["price"] > decision.amount
+        assert "id" in alternative and "name" in alternative and "price" in alternative
+
+
 def test_sunscreen_budget_is_respected():
     decision = AgentLLM().decide("Best sunscreen under ₹900", build_catalog())
     assert decision.product_id == 2

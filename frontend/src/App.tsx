@@ -23,6 +23,14 @@ type AgentResponse = {
   proposed_amount?: number;
   product_id?: number;
   candidates_considered?: Array<{
+    id?: number;
+    name?: string;
+    category?: string;
+    price?: number;
+    reason?: string;
+  }>;
+  alternatives?: Array<{
+    id?: number;
     name?: string;
     category?: string;
     price?: number;
@@ -258,6 +266,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [agentResponse, setAgentResponse] = useState<AgentResponse | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
   const [order, setOrder] = useState<OrderStatus | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
@@ -343,6 +352,7 @@ function App() {
         body: JSON.stringify({ message: trimmed }),
       });
       setAgentResponse(response);
+      setSelectedProductId(response.product_id ?? null);
       setMessages((current) => [...current, { from: 'agent', text: response.message }]);
       setCheckoutResult(null);
       setView('agent');
@@ -396,9 +406,46 @@ function App() {
   };
 
   const recommendedProduct = useMemo(() => {
-    if (!agentResponse?.product_id) return null;
-    return catalog.find((product) => product.id === agentResponse.product_id) ?? null;
+    const id = selectedProductId ?? agentResponse?.product_id;
+    if (!id) return null;
+    return catalog.find((product) => product.id === id) ?? null;
+  }, [agentResponse, catalog, selectedProductId]);
+
+  // Interactive choice set: the agent's pick first, then the same-category
+  // in-stock alternatives it returned. Clicking one switches the selection.
+  const selectableOptions = useMemo(() => {
+    if (!agentResponse) return [];
+    const options: Array<{ id: number; name: string; category: string; price: number; tag?: string }> = [];
+    const agentPick = catalog.find((product) => product.id === agentResponse.product_id);
+    if (agentPick) options.push({ ...agentPick, tag: 'Agent pick' });
+    for (const alt of agentResponse.alternatives ?? []) {
+      const id = alt.id;
+      if (id == null) continue;
+      if (options.some((option) => option.id === id)) continue;
+      const full = catalog.find((product) => product.id === id);
+      options.push(
+        full
+          ? { ...full }
+          : { id, name: alt.name ?? 'Product', category: alt.category ?? '', price: alt.price ?? 0 },
+      );
+    }
+    return options;
   }, [agentResponse, catalog]);
+
+  // Rejected items (wrong category / out of stock / over budget) remain an
+  // explainability trace but are not selectable.
+  const rejectedOthers = useMemo(() => {
+    const selectableIds = new Set(selectableOptions.map((option) => option.id));
+    return (agentResponse?.candidates_considered ?? []).filter(
+      (candidate) => candidate.id == null || !selectableIds.has(candidate.id),
+    );
+  }, [agentResponse, selectableOptions]);
+
+  const selectProduct = (id: number) => {
+    setSelectedProductId(id);
+    setCheckoutResult(null);
+    setOrder(null);
+  };
 
   const toggleSavedItem = async (product: Product) => {
     if (savingProductId === product.id) return;
@@ -425,7 +472,7 @@ function App() {
     }
   };
 
-  const amountToPay = agentResponse?.proposed_amount ?? recommendedProduct?.price ?? 0;
+  const amountToPay = recommendedProduct?.price ?? agentResponse?.proposed_amount ?? 0;
 
   const filteredAuditEvents = useMemo(() => {
     if (auditFilter === 'all') return auditEvents;
@@ -626,12 +673,48 @@ function App() {
                       <strong>Why this choice:</strong><br />
                       {agentResponse.reasoning}
                     </div>
-                    {agentResponse.candidates_considered && agentResponse.candidates_considered.length > 0 && (
+                    {selectableOptions.length > 1 && (
+                      <div style={{ marginTop: 14 }}>
+                        <strong style={{ fontSize: '0.85rem' }}>Switch to another option in this category:</strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                          {selectableOptions.map((option) => {
+                            const active = (selectedProductId ?? agentResponse?.product_id ?? null) === option.id;
+                            return (
+                              <button
+                                key={option.id}
+                                onClick={() => selectProduct(option.id)}
+                                aria-pressed={active}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  border: active ? '2px solid #145c4f' : '1px solid #d7cbb7',
+                                  background: active ? '#dfeee7' : 'rgba(255,255,255,0.6)',
+                                  borderRadius: 12,
+                                  padding: '10px 12px',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  color: 'var(--ink)',
+                                }}
+                              >
+                                <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <strong>{option.name}{option.tag ? ` · ${option.tag}` : ''}</strong>
+                                  <span className="muted" style={{ fontSize: '0.8rem' }}>{option.category}</span>
+                                </span>
+                                <span className="price">₹{option.price}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {rejectedOthers.length > 0 && (
                       <details style={{ marginTop: 12 }}>
-                        <summary style={{ cursor: 'pointer', color: '#145c4f', fontWeight: 700 }}>Other options considered</summary>
+                        <summary style={{ cursor: 'pointer', color: '#145c4f', fontWeight: 700 }}>Why not the other options?</summary>
                         <ul style={{ margin: '8px 0 0 18px', padding: 0, color: '#425856' }}>
-                          {agentResponse.candidates_considered.map((candidate, index) => (
-                            <li key={`recommendation-candidate-${index}`}>
+                          {rejectedOthers.map((candidate, index) => (
+                            <li key={`recommendation-rejected-${index}`}>
                               <strong>{candidate.name}</strong> — {candidate.reason} ({candidate.category}, ₹{candidate.price ?? 0})
                             </li>
                           ))}
