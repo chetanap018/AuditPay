@@ -68,6 +68,7 @@ class AgentAction(Base):
     reasoning: Mapped[str] = mapped_column(Text, nullable=False)
     amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     bounds_passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     candidates_considered: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     risk_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     risk_factors: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

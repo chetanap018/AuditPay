@@ -26,7 +26,7 @@ AI agents are increasingly expected to transact on a human's behalf, but there i
 
 ```bash
 git clone <repo-url>
-cd AUDIT_PAY
+cd AuditPay
 cp .env.example .env   # then fill in RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
 docker compose up --build
 ```

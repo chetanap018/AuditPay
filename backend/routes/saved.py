@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -22,7 +24,7 @@ class SavedProductOut(BaseModel):
     price: float
     stock: int
     category: str
-    image_url: str | None = None
+    image_url: Optional[str] = None
 
 
 def to_product_out(product: Product) -> SavedProductOut:

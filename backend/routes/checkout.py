@@ -16,7 +16,7 @@ from backend.core.guardrails import (
 from backend.core.idempotency import idempotency_manager
 from backend.core.razorpay_client import get_client
 from backend.core.risk_scorer import risk_scorer
-from backend.db.models import AgentAction, Product
+from backend.db.models import AgentAction, Order, Product
 from backend.db.session import get_db
 
 router = APIRouter(prefix="/checkout", tags=["checkout"])
@@ -113,6 +113,7 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 reasoning=f"Transaction blocked due to critical risk: {risk_assessment.recommendation}",
                 amount=checkout_amount,
                 bounds_passed=False,
+                session_id=payload.session_id,
             )
         )
         audit_trail.add_entry(
@@ -140,28 +141,50 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
         )
 
     # ===== GUARDRAILS CHECK =====
-    order_bounds = check_order_bounds(checkout_amount, product.category)
-    current_total = sum(
-        float(action.amount or 0)
-        for action in db.query(AgentAction)
-        .filter(AgentAction.bounds_passed.is_(True))
+    # The trust boundary runs before any payment call: it validates the amount the
+    # agent proposed (payload.amount) as well as the final charge after campaign
+    # discounts, plus the per-session order count and aggregate spend caps.
+    requested_bounds = check_order_bounds(payload.amount, product.category)
+    charge_bounds = check_order_bounds(checkout_amount, product.category)
+
+    approved_actions = (
+        db.query(AgentAction)
+        .filter(AgentAction.action_type == "CHECKOUT_APPROVED")
+        .filter(
+            AgentAction.session_id.is_(None)
+            if payload.session_id is None
+            else AgentAction.session_id == payload.session_id
+        )
         .all()
     )
-    order_count = db.query(AgentAction).filter(AgentAction.bounds_passed.is_(True)).count()
+    order_count = len(approved_actions)
+    current_total = sum(float(action.amount or 0) for action in approved_actions)
     session_limit = check_session_order_limit(
         order_count=order_count,
         current_total=current_total,
         new_amount=checkout_amount,
     )
 
-    if not order_bounds.passed or not session_limit.passed:
-        reason = order_bounds.reason if not order_bounds.passed else session_limit.reason
+    if not requested_bounds.passed:
+        reason = requested_bounds.reason
+    elif not charge_bounds.passed:
+        reason = charge_bounds.reason
+    elif not session_limit.passed:
+        reason = session_limit.reason
+    else:
+        reason = None
+
+    if reason is not None:
+        # Record the amount that was actually rejected: the agent's proposed amount
+        # when the per-order bounds failed, otherwise the final charge amount.
+        rejected_amount = payload.amount if not requested_bounds.passed else checkout_amount
         db.add(
             AgentAction(
                 action_type="BOUNDS_REJECTED",
                 reasoning=reason,
-                amount=checkout_amount,
+                amount=rejected_amount,
                 bounds_passed=False,
+                session_id=payload.session_id,
                 risk_score=risk_assessment.risk_score,
                 risk_factors=json.dumps(risk_factor_names),
             )
@@ -203,6 +226,7 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 reasoning=reason,
                 amount=checkout_amount,
                 bounds_passed=True,
+                session_id=payload.session_id,
                 risk_score=risk_assessment.risk_score,
                 risk_factors=json.dumps(risk_factor_names),
             )
@@ -255,6 +279,18 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 ),
                 amount=checkout_amount,
                 bounds_passed=True,
+                session_id=payload.session_id,
+            )
+        )
+        db.add(
+            Order(
+                product_id=product.id,
+                amount=checkout_amount,
+                total=checkout_amount,
+                status="created_mocked",
+                idempotency_key=payload.idempotency_key,
+                risk_score=risk_assessment.risk_score,
+                risk_factors=json.dumps(risk_factor_names),
             )
         )
         audit_trail.add_entry(
@@ -267,6 +303,14 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 "risk_level": risk_assessment.risk_level,
             },
         )
+        # Store idempotency key after successful processing
+        if payload.idempotency_key:
+            idempotency_manager.store_idempotency_response(
+                idempotency_key=payload.idempotency_key,
+                status_code=200,
+                response_body={"order_id": None, "amount": checkout_amount, "mocked": True},
+            )
+
         db.commit()
         return CheckoutResponse(
             success=True,
@@ -298,6 +342,19 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
             ),
             amount=checkout_amount,
             bounds_passed=True,
+            session_id=payload.session_id,
+        )
+    )
+    db.add(
+        Order(
+            product_id=product.id,
+            amount=checkout_amount,
+            total=checkout_amount,
+            status="created",
+            razorpay_order_id=order.get("id"),
+            idempotency_key=payload.idempotency_key,
+            risk_score=risk_assessment.risk_score,
+            risk_factors=json.dumps(risk_factor_names),
         )
     )
     audit_trail.add_entry(

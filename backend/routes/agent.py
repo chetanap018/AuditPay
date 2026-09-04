@@ -78,6 +78,7 @@ def handle_agent_request(payload: AgentRequest, db: Session = Depends(get_db)) -
             reasoning=decision.reasoning,
             amount=decision.amount,
             bounds_passed=True,
+            session_id=payload.session_id,
             candidates_considered=json.dumps(decision.candidates_considered or []),
         )
     )

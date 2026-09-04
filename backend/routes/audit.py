@@ -68,10 +68,12 @@ def get_audit_log(db: Session = Depends(get_db)) -> list[AuditEvent]:
 @router.get("/summary", response_model=AuditSummary)
 def get_audit_summary(db: Session = Depends(get_db)) -> AuditSummary:
     actions = db.query(AgentAction).all()
-    approved = sum(1 for item in actions if item.action_type in {"CHECKOUT_APPROVED", "PAYMENT_DECLINED"})
+    approved = sum(1 for item in actions if item.action_type == "CHECKOUT_APPROVED")
     total_value = sum(float(item.amount or 0) for item in actions if item.amount is not None)
     session_total_spend = sum(
-        float(item.amount or 0) for item in actions if item.amount is not None and item.bounds_passed
+        float(item.amount or 0)
+        for item in actions
+        if item.action_type == "CHECKOUT_APPROVED" and item.amount is not None
     )
     failed_payments = sum(1 for item in actions if item.action_type == "PAYMENT_DECLINED")
     guardrail_pass_rate = (

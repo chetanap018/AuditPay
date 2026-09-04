@@ -23,6 +23,7 @@ AUTO_MIGRATIONS: dict[str, dict[str, str]] = {
         "candidates_considered": "TEXT",
         "risk_score": "FLOAT",
         "risk_factors": "TEXT",
+        "session_id": "VARCHAR(128)",
     },
     "orders": {
         "total": "FLOAT DEFAULT 0",
