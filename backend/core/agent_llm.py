@@ -166,6 +166,10 @@ class AgentLLM:
                 "reason": reason,
             })
 
+        # Rank alternatives: same-category rejects (over budget / out of stock) are
+        # more relevant than wrong-category fillers when explaining the decision.
+        rejected.sort(key=lambda r: 0 if r["category"] in wanted else 1)
+
         if not candidates:
             in_stock = [
                 item for item in catalog
