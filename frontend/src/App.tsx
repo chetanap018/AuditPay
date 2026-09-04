@@ -22,6 +22,12 @@ type AgentResponse = {
   guardrail_status: string;
   proposed_amount?: number;
   product_id?: number;
+  candidates_considered?: Array<{
+    name?: string;
+    category?: string;
+    price?: number;
+    reason?: string;
+  }>;
 };
 
 type CheckoutResult = {
@@ -194,7 +200,7 @@ const styles = `
   .audit-filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .audit-filter { border: 1px solid var(--border); background: #f5efe8; color: var(--ink); border-radius: 999px; padding: 8px 12px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
   .audit-filter.active { background: var(--green-soft); border-color: #cfe4d6; color: var(--green); }
-  .audit-side-box { background: linear-gradient(180deg, #103f37, #0b2d2c); color: white; border-radius: 18px; padding: 18px; }
+  .audit-side-box { align-self: start; background: linear-gradient(180deg, #103f37, #0b2d2c); color: white; border-radius: 18px; padding: 18px; }
   .audit-side-box .row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
   .audit-side-box .row:last-child { border-bottom: 0; }
   @media (max-width: 840px) {
@@ -588,7 +594,7 @@ function App() {
 
                 {loadingAgent && <div className="muted" style={{ marginTop: 12 }}>Checking the catalog and guardrails…</div>}
 
-                {agentResponse && (
+                {agentResponse && recommendedProduct && (
                   <div className="recommendation-card">
                     <div className="recommendation-top">
                       <strong>Recommendation ready</strong>
@@ -599,6 +605,18 @@ function App() {
                       <strong>Why this choice:</strong><br />
                       {agentResponse.reasoning}
                     </div>
+                    {agentResponse.candidates_considered && agentResponse.candidates_considered.length > 0 && (
+                      <details style={{ marginTop: 12 }}>
+                        <summary style={{ cursor: 'pointer', color: '#145c4f', fontWeight: 700 }}>Other options considered</summary>
+                        <ul style={{ margin: '8px 0 0 18px', padding: 0, color: '#425856' }}>
+                          {agentResponse.candidates_considered.map((candidate, index) => (
+                            <li key={`recommendation-candidate-${index}`}>
+                              <strong>{candidate.name}</strong> — {candidate.reason} ({candidate.category}, ₹{candidate.price ?? 0})
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                     <div className="card-row" style={{ marginTop: 16 }}>
                       <div className="price">₹{amountToPay}</div>
                       {recommendedProduct && (
@@ -606,8 +624,8 @@ function App() {
                           <button className="secondary-button" onClick={() => void toggleSavedItem(recommendedProduct)} disabled={loadingCheckout || savingProductId === recommendedProduct.id}>
                             {savingProductId === recommendedProduct.id ? 'Saving…' : savedItems.some((item) => item.id === recommendedProduct.id) ? 'Saved' : 'Save item'}
                           </button>
-                          <button className="primary-button" onClick={() => setCheckoutResult(null)} disabled={loadingCheckout}>
-                            Secure checkout
+                          <button className="primary-button" onClick={() => void checkout(recommendedProduct.id, amountToPay, false)} disabled={loadingCheckout}>
+                            {loadingCheckout ? 'Processing…' : 'Secure checkout'}
                           </button>
                           <button className="ghost-button" onClick={() => checkout(recommendedProduct.id, amountToPay, true)} disabled={loadingCheckout}>
                             Test decline

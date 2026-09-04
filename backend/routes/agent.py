@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException  # type: ignore[import-not-found]
+from fastapi import APIRouter, Depends  # type: ignore[import-not-found]
 from pydantic import BaseModel  # type: ignore[import-not-found]
 from sqlalchemy.orm import Session  # type: ignore[import-not-found]
 
@@ -28,6 +28,7 @@ class AgentResponse(BaseModel):
     guardrail_status: str
     proposed_amount: Optional[float] = None
     product_id: Optional[int] = None
+    candidates_considered: list[dict] = []
     # Upsell/Cross-sell fields
     upsell_product: Optional[dict] = None
     cross_sell_products: list[dict] = []
@@ -54,7 +55,16 @@ def handle_agent_request(payload: AgentRequest, db: Session = Depends(get_db)) -
     decision = llm.decide(payload.message, filtered or catalog)
 
     if decision.product_id is None:
-        raise HTTPException(status_code=400, detail="No safe product was identified.")
+        # Conversational or unmatched requests: reply without proposing a product.
+        # These turns are not purchase actions, so no RECOMMENDATION audit event
+        # is written for them.
+        return AgentResponse(
+            message=decision.message,
+            status="clarify",
+            reasoning=decision.reasoning,
+            guardrail_status=decision.guardrail_status,
+            candidates_considered=decision.candidates_considered[:3],
+        )
 
     # Check for bundle offers
     bundle_offer = None
@@ -91,6 +101,7 @@ def handle_agent_request(payload: AgentRequest, db: Session = Depends(get_db)) -
         guardrail_status=decision.guardrail_status,
         proposed_amount=decision.amount,
         product_id=decision.product_id,
+        candidates_considered=decision.candidates_considered[:3],
         upsell_product=decision.upsell_product,
         cross_sell_products=decision.cross_sell_products,
         bundle_offer=bundle_offer,
