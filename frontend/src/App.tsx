@@ -212,6 +212,27 @@ const styles = `
   }
 `;
 
+// Audit timestamps are stored as naive UTC (no timezone suffix). Interpret them
+// as UTC and render in IST so every reviewer sees the same clock, regardless of
+// the machine they open the app on.
+const IST_DATE_FORMAT = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+});
+
+function formatIST(timestamp: string): string {
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp);
+  const date = new Date(hasTimezone ? timestamp : `${timestamp}Z`);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return `${IST_DATE_FORMAT.format(date)} IST`;
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -937,7 +958,7 @@ function App() {
                         <div className="audit-item" key={event.id}>
                           <div>
                             <strong>{event.action_type}</strong>
-                            <div className="muted">{new Date(event.timestamp).toLocaleString()}</div>
+                            <div className="muted">{formatIST(event.timestamp)}</div>
                           </div>
                           <div>
                             <strong>Amount</strong>
