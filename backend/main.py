@@ -21,7 +21,6 @@ from backend.routes.audit_trail import router as audit_trail_router
 from backend.routes.campaigns import router as campaigns_router
 from backend.routes.catalog import router as catalog_router
 from backend.routes.checkout import router as checkout_router
-from backend.routes.webhooks import router as webhooks_router
 from backend.routes.saved import router as saved_router
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -57,7 +56,6 @@ app.include_router(agent_router, prefix="/api")
 app.include_router(campaigns_router, prefix="/api")
 app.include_router(checkout_router, prefix="/api")
 app.include_router(audit_router, prefix="/api")
-app.include_router(webhooks_router, prefix="/api")
 app.include_router(saved_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(audit_trail_router, prefix="/api")

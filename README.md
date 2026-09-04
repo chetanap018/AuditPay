@@ -180,8 +180,7 @@ AUDIT_PAY/
 │   │   ├── immutable_audit.py     # Hash-linked audit entries
 │   │   ├── payment_analytics.py   # Payment metrics
 │   │   ├── razorpay_client.py     # Razorpay test-mode client
-│   │   ├── risk_scorer.py         # Transaction risk checks
-│   │   └── webhook_security.py    # Webhook verification
+│   │   └── risk_scorer.py         # Transaction risk checks
 │   ├── db/
 │   │   ├── models.py              # Product, SavedProduct, Order, and audit models
 │   │   ├── schema.py              # Schema creation and verification
@@ -195,8 +194,7 @@ AUDIT_PAY/
 │   │   ├── campaigns.py           # Campaign endpoints
 │   │   ├── catalog.py             # Product catalog
 │   │   ├── checkout.py             # Guarded checkout
-│   │   ├── saved.py               # Saved-product persistence
-│   │   └── webhooks.py            # Razorpay webhooks
+│   │   └── saved.py               # Saved-product persistence
 │   └── tests/
 │       ├── test_guardrails.py     # Guardrail regression tests
 │       └── test_schema_verification.py # Database schema tests
