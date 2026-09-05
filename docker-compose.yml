@@ -9,8 +9,12 @@ services:
     environment:
       PORT: "8000"
       DATABASE_URL: "sqlite:////data/auditpay.db"
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_TVEmSMaahZz670}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-XhckJqIwDgHkBhD40F0q0jhD}
+      # Credentials are never baked into the image. Copy .env.example to .env and
+      # set RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET there; compose fails fast with a
+      # clear message if they are missing instead of silently falling back to a
+      # hardcoded test key.
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:?RAZORPAY_KEY_ID missing — cp .env.example .env and set it}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:?RAZORPAY_KEY_SECRET missing — cp .env.example .env and set it}
     volumes:
       - auditpay_data:/data
     restart: unless-stopped
