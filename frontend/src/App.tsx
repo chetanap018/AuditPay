@@ -36,6 +36,28 @@ type AgentResponse = {
     price?: number;
     reason?: string;
   }>;
+  upsell_product?: {
+    id?: number;
+    name?: string;
+    category?: string;
+    price?: number;
+    reason?: string;
+  } | null;
+  cross_sell_products?: Array<{
+    id?: number;
+    name?: string;
+    category?: string;
+    price?: number;
+    reason?: string;
+  }>;
+  bundle_offer?: {
+    name?: string;
+    description?: string;
+    original_price?: number;
+    bundle_price?: number;
+    savings?: number;
+    discount_percent?: number;
+  } | null;
 };
 
 type CheckoutResult = {
@@ -673,6 +695,38 @@ function App() {
                       <strong>Why this choice:</strong><br />
                       {agentResponse.reasoning}
                     </div>
+                    {(agentResponse.upsell_product || (agentResponse.cross_sell_products?.length ?? 0) > 0 || agentResponse.bundle_offer) && (
+                      <div style={{ marginTop: 14, display: 'grid', gap: 10 }}>
+                        <strong style={{ fontSize: '0.85rem' }}>Ways to grow the basket</strong>
+                        {agentResponse.upsell_product && (
+                          <div style={{ padding: '10px 12px', borderRadius: 12, background: '#fff2df', border: '1px solid #e8c995' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <strong>Upsell: {agentResponse.upsell_product.name}</strong>
+                              <span className="price">₹{agentResponse.upsell_product.price}</span>
+                            </div>
+                            <div className="muted" style={{ marginTop: 4 }}>{agentResponse.upsell_product.reason}</div>
+                          </div>
+                        )}
+                        {agentResponse.cross_sell_products?.map((product) => (
+                          <div key={product.id ?? product.name} style={{ padding: '10px 12px', borderRadius: 12, background: '#eef7f4', border: '1px solid #bfd7cc' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <strong>Cross-sell: {product.name}</strong>
+                              <span className="price">₹{product.price}</span>
+                            </div>
+                            <div className="muted" style={{ marginTop: 4 }}>{product.reason}</div>
+                          </div>
+                        ))}
+                        {agentResponse.bundle_offer && (
+                          <div style={{ padding: '10px 12px', borderRadius: 12, background: '#f8f5ee', border: '1px solid #d7cbb7' }}>
+                            <strong>Bundle offer: {agentResponse.bundle_offer.name}</strong>
+                            <div className="muted" style={{ marginTop: 4 }}>{agentResponse.bundle_offer.description}</div>
+                            <div style={{ marginTop: 6, fontWeight: 800 }}>
+                              ₹{agentResponse.bundle_offer.bundle_price} · Save ₹{agentResponse.bundle_offer.savings} ({agentResponse.bundle_offer.discount_percent}% off)
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {selectableOptions.length > 1 && (
                       <div style={{ marginTop: 14 }}>
                         <strong style={{ fontSize: '0.85rem' }}>Switch to another option in this category:</strong>
