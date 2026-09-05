@@ -269,13 +269,18 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 "notes": {"product_id": str(product.id), "product_name": product.name},
             }
         )
-    except RuntimeError:
+    except Exception as exc:  # noqa: BLE001
+        # Any failure creating a real Razorpay order — missing keys, unreachable
+        # Razorpay API from a container/network, expired or suspended test keys —
+        # safely degrades to mock mode. Guardrails already passed, so the demo
+        # stays usable regardless of key/network state; the reason is recorded.
+        mock_reason = f"Razorpay order creation unavailable ({type(exc).__name__}): {exc}"
         db.add(
             AgentAction(
                 action_type="CHECKOUT_APPROVED",
                 reasoning=(
                     f"Guardrails passed: ₹{checkout_amount} is within the maximum and category ‘{product.category}’ is approved. "
-                    f"Razorpay credentials are not configured yet, so the test checkout is mocked."
+                    f"{mock_reason} — recorded as a mocked checkout."
                 ),
                 amount=checkout_amount,
                 bounds_passed=True,
@@ -299,6 +304,7 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
                 "product_id": product.id,
                 "amount": checkout_amount,
                 "status": "mocked",
+                "reason": mock_reason,
                 "risk_score": risk_assessment.risk_score,
                 "risk_level": risk_assessment.risk_level,
             },
@@ -315,10 +321,10 @@ def create_checkout(payload: CheckoutRequest, db: Session = Depends(get_db)) -> 
         return CheckoutResponse(
             success=True,
             status="checkout_created",
-            message="Checkout is ready. Razorpay keys are not configured yet, so this is running in safe mock mode.",
+            message="Checkout is ready. Running in safe mock mode because a real Razorpay order could not be created here.",
             reasoning=(
                 f"Guardrails passed: ₹{checkout_amount} is within the maximum and category ‘{product.category}’ is approved. "
-                "A real Razorpay order cannot be created until the environment variables are set."
+                f"{mock_reason}"
             ),
             bounds_passed=True,
             payment_url=None,
