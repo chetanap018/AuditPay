@@ -22,7 +22,12 @@ class ProductOut(BaseModel):
     image_url: Optional[str] = None
 
 
-@router.get("", response_model=list[ProductOut])
+@router.get(
+    "",
+    response_model=list[ProductOut],
+    summary="Agent-readable product catalog",
+    description="Returns the machine-readable product catalog that shopping agents can inspect for product names, categories, prices, stock, and descriptions before making a recommendation.",
+)
 def list_catalog(db: Session = __import__("fastapi").Depends(get_db)) -> list[ProductOut]:
     products = db.query(Product).all()
     return [
