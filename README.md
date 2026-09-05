@@ -45,6 +45,27 @@ Credentials are **not** baked into the image — `docker compose` reads them fro
 - **Audit dashboard** — every agent action is logged with amount, reasoning, guardrail verdict, and outcome, plus a summary panel (session spend vs. the ₹9,000 cap, guardrail pass rate, failed payments).
 - The dashboard starts empty and populates from real interactions — which is the point: the log records what actually happened, not a scripted demo. To see a guardrail rejection immediately, send a checkout through `/docs` with an amount above ₹8,000 (it's blocked and logged as `BOUNDS_REJECTED`), or use the simulate-failure toggle in the UI to see a logged `PAYMENT_DECLINED`. Approve a normal agent checkout and you'll have approved, blocked, and declined events in one view.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/Storefront.png" alt="Storefront and catalog"/></td>
+    <td width="50%"><img src="assets/screenshots/Agent.png" alt="Agent chat with reasoning"/></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Storefront &amp; catalog</em></td>
+    <td align="center"><em>Agent chat — recommendation with reasoning</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/Payment.png" alt="Guardrail rejecting a checkout"/></td>
+    <td width="50%"><img src="assets/screenshots/Audit_trial.png" alt="Audit dashboard"/></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Guardrail blocking an over-limit checkout</em></td>
+    <td align="center"><em>Audit dashboard — full event trail</em></td>
+  </tr>
+</table>
+
 ## Architecture overview
 
 ```
