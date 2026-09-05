@@ -26,8 +26,8 @@ AI agents are increasingly expected to transact on a human's behalf, but there i
 
 ```bash
 git clone <repo-url>
-cd AuditPay
-cp .env.example .env   # then fill in RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+cd AuditPay           # the clone creates a folder named after the repo (AuditPay)
+cp .env.example .env  # then set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
 docker compose up --build
 ```
 
@@ -36,11 +36,11 @@ Once running, open:
 - **Frontend:** http://localhost:5173
 - **Backend API docs (Swagger):** http://localhost:8000/docs
 
-The product catalog is seeded automatically on first boot. The compose file ships with Razorpay test-mode default keys, so if you skip the `.env` edit the backend runs in safe mock mode — checkout flows work end-to-end without touching real money.
+Credentials are **not** baked into the image — `docker compose` reads them from your `.env` and will fail fast with a clear message if they're missing. Outside Docker, the backend runs in a safe mock mode when the keys are absent, so the full checkout flow still works without touching real money.
 
 ## What you'll see when you open it
 
-- **Storefront/catalog** — 8 seeded skincare products with prices, stock, and categories.
+- **Storefront/catalog** — 26 seeded products across 9 categories (moisturizer, sunscreen, serum, cleanser, face oil, sets, makeup, skincare, wellness), each category spanning budget → premium price ranges.
 - **Agent chat** — type a request ("I need a moisturizer for dry skin"); the agent recommends a product, shows its reasoning, the candidates it considered and rejected, and optional upsell/cross-sell suggestions, then proposes a checkout.
 - **Audit dashboard** — every agent action is logged with amount, reasoning, guardrail verdict, and outcome, plus a summary panel (session spend vs. the ₹9,000 cap, guardrail pass rate, failed payments).
 - The dashboard starts empty and populates from real interactions — which is the point: the log records what actually happened, not a scripted demo. To see a guardrail rejection immediately, send a checkout through `/docs` with an amount above ₹8,000 (it's blocked and logged as `BOUNDS_REJECTED`), or use the simulate-failure toggle in the UI to see a logged `PAYMENT_DECLINED`. Approve a normal agent checkout and you'll have approved, blocked, and declined events in one view.
@@ -70,7 +70,7 @@ Every checkout request — whether triggered by a human clicking buy or by the a
 
 ## Design decision: where the trust boundary lives
 
-The recommendation logic in this project is intentionally simple: it does not try to be a deep constrained optimizer, and it is not a dedicated defense against prompt injection at the model layer. That is a deliberate design choice. The trusted boundary is the deterministic guardrail layer in `backend/core/guardrails.py`, which gates every financial action before a payment is attempted. The LLM is allowed to propose a product or amount, but it is never given authority to move money on its own; approval is enforced by a separate, non-LLM policy check that sits outside the model's judgment.
+The recommendation logic in this project is intentionally simple: it does not try to be a deep constrained optimizer, and it is not a dedicated defense against prompt injection at the model layer. **The agent makes no external LLM / model API calls** — `AgentLLM.decide()` is pure deterministic keyword and regex matching against static dictionaries (see `backend/core/agent_llm.py`); there is no OpenAI, Anthropic, or other model client in the dependencies or the code. That is a deliberate design choice. The trusted boundary is the deterministic guardrail layer in `backend/core/guardrails.py`, which gates every financial action before a payment is attempted. The agent is allowed to propose a product or amount, but it is never given authority to move money on its own; approval is enforced by a separate, non-LLM policy check that sits outside any model's judgment.
 
 ## Relationship to emerging agentic commerce protocols
 
@@ -171,13 +171,12 @@ AUDIT_PAY/
 │   ├── requirements.txt           # Python dependencies
 │   ├── Dockerfile                 # Backend container image
 │   ├── core/
-│   │   ├── agent_llm.py           # Agent recommendation logic
+│   │   ├── agent_llm.py           # Agent recommendation logic (deterministic, no model calls)
 │   │   ├── agent_tools.py         # Catalog search tools
 │   │   ├── audit_trail.py         # Audit event recording
 │   │   ├── campaigns.py           # Campaign and bundle logic
 │   │   ├── guardrails.py          # Server-side trust boundary
 │   │   ├── idempotency.py         # Duplicate payment protection
-│   │   ├── immutable_audit.py     # Hash-linked audit entries
 │   │   ├── payment_analytics.py   # Payment metrics
 │   │   ├── razorpay_client.py     # Razorpay test-mode client
 │   │   └── risk_scorer.py         # Transaction risk checks
@@ -193,11 +192,14 @@ AUDIT_PAY/
 │   │   ├── audit_trail.py         # Detailed audit entries
 │   │   ├── campaigns.py           # Campaign endpoints
 │   │   ├── catalog.py             # Product catalog
-│   │   ├── checkout.py             # Guarded checkout
+│   │   ├── checkout.py            # Guarded checkout
 │   │   └── saved.py               # Saved-product persistence
 │   └── tests/
+│       ├── conftest.py            # Session bootstrap (creates schema before tests)
+│       ├── test_agent_llm.py      # Agent recommendation + intent tests
 │       ├── test_guardrails.py     # Guardrail regression tests
-│       └── test_schema_verification.py # Database schema tests
+│       ├── test_schema_verification.py # Database schema tests
+│       └── test_seed_catalog.py   # Seeded catalog requirements
 ├── frontend/
 │   ├── Dockerfile                 # Frontend container image
 │   ├── package.json               # Frontend dependencies and scripts
@@ -210,7 +212,6 @@ AUDIT_PAY/
 │   ├── api-spec/                  # OpenAPI contract and code generation
 │   ├── api-zod/                   # Generated Zod API schemas
 │   └── db/                        # Drizzle workspace database package
-├── artifacts/                     # Additional prototype/workspace applications
 ├── scripts/                       # Project utility scripts
 ├── docker-compose.yml             # Runs backend and frontend together
 ├── .env.example                   # Example local environment variables
@@ -221,3 +222,12 @@ AUDIT_PAY/
 ```
 
 The local `auditpay.db` SQLite file is created at runtime and should remain uncommitted. Docker stores the database in the `auditpay_data` volume so saved products, orders, and audit records survive container restarts.
+
+## Known limitations
+
+This is a demo, not a production service. Points a reviewer should know up front:
+
+- **No external model.** The agent is deterministic keyword/regex matching — there is no LLM client and no prompt-injection surface (see the "Design decision" section).
+- **CORS is wildcard-open** (`*`) and there is **no authentication or rate limiting** on any endpoint. The guardrails are the only gate on spending. This is intentional for a local demo; a production deployment would add auth, per-origin CORS, and rate limits.
+- **Test-mode payments only.** Real-money Razorpay orders require keys in `.env`; without them the backend runs in safe mock mode.
+- **SQLite only.** The data layer is SQLite;
