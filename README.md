@@ -26,8 +26,8 @@ AI agents are increasingly expected to transact on a human's behalf, but there i
 
 ```bash
 git clone <repo-url>
-cd AuditPay           # the clone creates a folder named after the repo (AuditPay)
-cp .env.example .env  # then set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+cd AuditPay             # the clone creates a folder named after the repo (AuditPay)
+cp .env.example .env    # then set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
 docker compose up --build
 ```
 
@@ -37,6 +37,14 @@ Once running, open:
 - **Backend API docs (Swagger):** http://localhost:8000/docs
 
 Credentials are **not** baked into the image — `docker compose` reads them from your `.env` and will fail fast with a clear message if they're missing. Outside Docker, the backend runs in a safe mock mode when the keys are absent, so the full checkout flow still works without touching real money.
+
+The product catalog is seeded automatically on first boot and stays in sync on later boots (new products are added, existing ones updated — never duplicated). The database lives in a named Docker volume (`auditpay_data`) so it survives restarts.
+
+> **Stale data after pulling updates?** If you ran an older version first, the volume may hold old seed data. Either rely on the automatic sync above, or force a clean slate:
+> ```bash
+> docker compose down -v   # removes the volume
+> docker compose up --build
+> ```
 
 ## What you'll see when you open it
 
