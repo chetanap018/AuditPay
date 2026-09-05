@@ -248,15 +248,28 @@ def build_seed_catalog() -> list[dict[str, Any]]:
 
 
 def seed_catalog() -> None:
+    """Seed the catalog, or bring an existing one in sync with the spec.
+
+    The Docker backend stores SQLite in a named volume that survives restarts,
+    so a plain "skip if any rows exist" seed would silently keep stale data after
+    the catalog spec changes. Instead:
+
+      * Empty database  → insert the full catalog (first ever boot).
+      * Existing rows   → upsert: update changed columns on existing ids and
+        insert any that are missing, so the catalog always matches
+        ``build_seed_catalog()`` without duplicating rows or touching orders
+        that reference existing products.
+    """
     init_db()
     db: Session = SessionLocal()
     try:
-        product_count = db.query(Product).count()
-        if product_count > 0:
-            return
+        existing_ids = {row.id for row in db.query(Product.id).all()}
 
         for item in build_seed_catalog():
-            db.add(Product(**item))
+            if item["id"] in existing_ids:
+                db.query(Product).filter(Product.id == item["id"]).update(item, synchronize_session=False)
+            else:
+                db.add(Product(**item))
 
         db.commit()
     finally:
